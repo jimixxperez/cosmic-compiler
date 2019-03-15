@@ -33,20 +33,28 @@ struct Lexer<'a,'b> {
 }
 
 impl<'a, 'b> Lexer<'a, 'b> {
-    fn new(keywords: Vec<&'a str>) -> Lexer<'a, 'b> {
+    fn new(keywords: Option<Vec<&'a str>>) -> Lexer<'a, 'b> {
+        let _keywords = match keywords {
+            Some(x) => x,
+            None => vec![]
+        };
         let tk = vec![];
         Lexer {
-            keywords: keywords,
+            keywords: _keywords,
             token_list: tk
         }
     }
 
-    fn extract_token(&self, text: &'b str) -> Vec<Token<'b>>{
-        let tk = Token {
-            word: text,
-            value: "1"
+    fn extract_token(&self, text: &'b str) -> Vec<Token<'b>> {
+        let re = Regex::new(r"\s+").unwrap();
+        let mut extracted_tks = vec![];
+        for s in re.split(text) {
+            if self.keywords.iter().any(|ref k| **k == s) {
+                let tk = Token {word: s, value: "ok"};
+                extracted_tks.push(tk);
+            }
         };
-        vec![tk]
+        extracted_tks
     }
 
     fn register_token(&mut self, token: Token<'b>) {
@@ -54,29 +62,10 @@ impl<'a, 'b> Lexer<'a, 'b> {
     }
 }
 
-fn matchSubElements(el: &str) -> &str {
-   let x = "test".to_owned();
-   let y = &el;
-    println!("{}, {}", y, el);
-    y
-}
-
 fn main() {
-    let y = "int a  = 1;";
-    let keywords = vec!["int", "long", "{", "}", "="];
-    let mut lexer = Lexer::new(keywords);
+    let y = "int a  = 1 ;";
+    let keywords = vec!["int", "long", "{", "}", "=", ";"];
+    let mut lexer = Lexer::new(Some(keywords));
     let val = lexer.extract_token(&y);
-    println!("{}", val[0].word);
-    let t = Token{
-        word:"t",
-        value:"value"
-    } ;
-    lexer.register_token(t);
-    let re = Regex::new(r"\s+").unwrap();
-    let mut i = 0;
-    for s in re.split(&y) {
-        matchSubElements(&s);
-        println!("{} {}",i, s) ;
-        i = i + 1;
-    }
+    println!("this {}", val[1].word);
 }

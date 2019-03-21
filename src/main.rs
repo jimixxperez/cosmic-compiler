@@ -34,21 +34,32 @@ enum SYNTAX {
 //
 
 enum Token {
-    identifier(String),
-    key_if,
-    key_while,
-    sep_curly_open,
-    sep_curly_close,
-    sep_round_open,
-    sep_round_close,
-    sep_semicolon,
-    op_plus,
-    op_minus,
-    bool(bool),
-    float(f32),
-    int(i32),
-    string(String),
-    comment(String)
+    Identifier(String),
+    Key_if,
+    Key_while,
+    Sep_curly_open,
+    Sep_curly_close,
+    Sep_round_open,
+    Sep_round_close,
+    Sep_semicolon,
+    Op_plus,
+    Op_minus,
+    Bool(bool),
+    Float(f32),
+    Int(i32),
+    String(String),
+    Comment(String)
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let repr = match self {
+            Token::Identifier(x) => x,
+            Token::String(x) => x,
+            _ => "dunno"
+        };
+        write!(f, "{}", repr)
+    }
 }
 
 struct NewRegex<'a> {
@@ -99,8 +110,8 @@ struct Lexer {
 }
 
 impl Iterator for Lexer  {
-    type Item = String;
-    fn next(&mut self) -> Option<String> {
+    type Item = Token;
+    fn next(&mut self) -> Option<Token> {
         self.token()
     }
 }
@@ -114,21 +125,21 @@ impl Lexer {
         } 
     }
 
-    fn token(&mut self) -> Option<String>{
+    fn token(&mut self) -> Option<Token>{
         self.skip_non_tokens();
         if (self.pos >= self.size) {
             return None;
         }
         let c = self.buffer[self.pos];
         if Lexer::isalpha(c) {
-            self.process_identifier();
-            return Some("identifier".to_owned());
+            return Some(self.process_identifier().unwrap());
         } else if Lexer::isdigit(c){
-            self.process_number();
-            return Some("digit".to_owned());
+            return Some(self.process_number().unwrap());
+        }else if c == '"' {
+            return Some(self.process_quote().unwrap());
         } else {
             self.pos = self.pos + 1;
-            return Some("don t know".to_owned());
+            return None;
         }
     }
 
@@ -144,22 +155,43 @@ impl Lexer {
         Lexer::isalpha(c) || Lexer::isdigit(c)
     }
 
-    fn process_number(&mut self) {
+    fn process_quote(&mut self) -> Result<Token, String>{
+        let mut endpos = self.pos + 1;
+        while(endpos < self.size && self.buffer[endpos] != '"')  {
+            endpos = endpos + 1;
+        }
+        if (endpos + 1 == self.size) {
+            return Err("missing end quotes".to_owned());
+        } else {
+            let s: String = self.buffer[self.pos..endpos].iter().collect();
+            if (endpos + 1 < self.size) {
+                self.pos = endpos + 1;
+            }
+            return Ok(Token::String(s));
+        }
+
+    }
+
+    fn process_number(&mut self) -> Result<Token, String>{
         let mut endpos = self.pos + 1;
         while(endpos < self.size && Lexer::isdigit(self.buffer[endpos])) {
             endpos = endpos + 1;
         }
-        println!("this is a number {:?}", &self.buffer[self.pos..endpos]);
+        let s: String = self.buffer[self.pos..endpos].iter().collect();
+        let num: i32  = s.parse().unwrap();
         self.pos = endpos;
+        return Ok(Token::Int(num));
     }
 
-    fn process_identifier(&mut self) {
+    fn process_identifier(&mut self) -> Result<Token, String>{
         let mut endpos = self.pos + 1;
         while(endpos < self.size && Lexer::isalphanum(self.buffer[endpos])) {
             endpos = endpos + 1;
         }
         println!("this is an identifier {:?}", &self.buffer[self.pos..endpos]);
+        let s: String = self.buffer[self.pos..endpos].iter().collect();
         self.pos = endpos;
+        return Ok(Token::Identifier(s))
     }
 
     fn skip_non_tokens(&mut self) {
@@ -216,13 +248,14 @@ impl Lexer {
 
 fn main() {
     let y = "\t if(a  == 1) {} ;";
-    let z = " a b 120 > ok";
+    let z = " a b 120 > ok \" ok \" ";
     let mut lexer = Lexer::new(&z);
     //lexer.skip_non_tokens();
     //println!("{}", Lexer::isalpha(lexer.buffer[1]));
     for k in lexer {
         println!("{} ", k);
     }
+    println!("{}", z);
     // let mut RegexMapper = HashMap::new();
     // RegexMapper.insert("if", NewRegex::new(r"(?:\w)if\(?"));
     //RegexMapper.insert("else", NewRegex::new(r"(?<!\w)else(?!\w)"));
